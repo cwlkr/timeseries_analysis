@@ -1,35 +1,12 @@
-if(!require(pacman)){
-  install.packages("pacman")
-}
-pacman::p_load(data.table, ggplot2, tidyverse, readxl)
-#laod dataset
-mnt =  "/run/user/1000/gvfs/afp-volume:host=izbhelsinki,volume=imaging.data"
-experiment = "Coralie/NIH3T3/siPOOLs/20181126_systIII_siPOOLs_plate1_singlePulses_I/20181126_101824_932/Merged"
-metaname = "20181126_NIH3T3_syst_III_siPOOL_plate1_singlePulses.xlsx"
-
-pdf.filename = "plots.pdf" 
-
-path = paste(mnt, experiment, "cp.out", sep = "/") # or just the path to tCoursesSelected.csv
-metadatapath = paste(mnt, experiment, metaname, sep = "/") # or just the path to the metadata file
-
-# Read csv file 
-s.file = list.files(path = path, pattern = "tCoursesSelected.csv", recursive = FALSE, full.names = TRUE)
-dt.data = fread(file = s.file)
-
-#load metadata
-metadata = as.data.table(read_xlsx(metadatapath))[-(1:2)]
-metanamecol = paste0(as.vector(metadata[1,]), "") # dirty hack to get "real" vector
-metadata = `colnames<-`(metadata, metanamecol)[-1,]
-
-
 
 
 #naming of the columns
-nuc.erk = "objNuc_Intensity_MeanIntensity_imErk"
-cyto.erk = "objCyto_ring_Intensity_MeanIntensity_imErk"
-time.var = "RealTime"
-stim.var = "Stimulation_treatment"
-
+# nuc.erk = "objNuc_Intensity_MeanIntensity_imErk"
+# cyto.erk = "objCyto_ring_Intensity_MeanIntensity_imErk"
+# time.var = "RealTime"
+# stim.var = "Stimulation_treatment"
+# stim.time.var = "Stimulation_time"
+plate = "plate1"
 
 #for each list element a plot will be created with those elements
 experient.groups.plate1 = list(
@@ -41,9 +18,23 @@ experient.groups.plate1 = list(
   c("+CTRL 5", "-CTRL 5", "DUSP1","DUSP2", "DUSP3", "DUSP4"),
   c("+CTRL 6", "-CTRL 6", "DUSP6","DUSP8", "DUSP9", "DUSP10"),
   c("+CTRL 7", "-CTRL 7", "DUSP14","DUSP16", "DUSP22", "DUSP26"),
-  c("+CTRL 8", "-CTRL 8", "PP2A","RKIP", "PEA15", "RSK2"),
+  c("+CTRL 8", "-CTRL 8", "PP2A","RKIP", "PEA15", "RSK2")
+  #c("WT 1", "WT 2", "WT 3","WT 4", "+CTRL 9", "-CTRL 9")
+  
+)
+
+experient.groups.plate2 = list(
+  c("+CTRL 1","+CTRL 2","+CTRL 3","+CTRL 4","+CTRL 5","+CTRL 6","+CTRL 7","+CTRL 8","-CTRL 1","-CTRL 2","-CTRL 3","-CTRL 4","-CTRL 5","-CTRL 6","-CTRL 7","-CTRL 8"),
+  c("+CTRL 1", "-CTRL 1", "SOS1","SOS2", "RASA1", "NF1"),
+  c("+CTRL 2", "-CTRL 2", "RASGRP1","RAP1A", "RAP1B", "SRC"),                      
+  c("+CTRL 3", "-CTRL 3", "RAPGEF1","RAPGEF3", "DIRAS1", "DIRAS2"),
+  c("+CTRL 4", "-CTRL 4", "FRS2","Shc1", "GAB1", "GRB2"),
+  c("+CTRL 5", "-CTRL 5", "SPRY1","SPRY2", "SPRY3", "SPRY4"),
+  c("+CTRL 6", "-CTRL 6", "PTPN6","PTPN11", "NCK1", "NCK2"),
+  c("+CTRL 7", "-CTRL 7", "CRKL","SHIP", "PTK2", "PLCG1"),
   c("WT 1", "WT 2", "WT 3","WT 4", "+CTRL 9", "-CTRL 9")
 )
+
 
 # Create a new table with only positive controls
 # dt.data.positiveCTRLs = dt.data[Stimulation_treatment %in% c("+CTRL 1","+CTRL 2","+CTRL 3","+CTRL 4","+CTRL 5","+CTRL 6","+CTRL 7","+CTRL 8")]
@@ -55,26 +46,34 @@ experient.groups.plate1 = list(
 # dt.data.exp1 = dt.data[Stimulation_treatment %in% c("+CTRL 1", "-CTRL 1", "ERK1","ERK2", "MEK1", "MEK2")]
 
 
-create_plot = function(data, ci.lvl, stimulus.rug, stim.var, time.var, nuc.erk, cyto.erk,stim.color = "red",  alpha = 0.1, xlab = "Real Time (min)", ylab = "ERK-KTR Cytoplasmic ot Nuclear Ratio"){
+create_plot = function(data, ci.lvl, stimulus.rug, stim.var, erk.ratio.var, time.var, nuc.erk, cyto.erk,stim.color = "red",  alpha = 0.1, xlab = "Real Time (min)", ylab = "ERK-KTR Cytoplasmic ot Nuclear Ratio"){
   a = ci.lvl
   #create unique id for each track..
   #data[,unique := paste(Image_Metadata_Site, objNuc_TrackObjects_Label, sep = "_")]
   #calc erk ratio
-  data[,"nuc_cyto" := (as.double(get(cyto.erk))/as.double(get(nuc.erk)))]
   # for each grouping calc mean, min, max, ci upper lower
-  data.summary <- data%>% group_by(.dots = c(stim.var, time.var)) %>% summarise(ymin_ctn = quantile(nuc_cyto, 0), ymax_ctn = quantile(nuc_cyto, 1), mean_ctn = mean(nuc_cyto),
-          lower = mean(nuc_cyto) - (qnorm(1-(a/2)) * sd(nuc_cyto)/sqrt(n())) , upper =  mean(nuc_cyto) + (qnorm(1-(a/2)) * sd(nuc_cyto)/sqrt(n())))
+  data.summary <- data %>% ungroup() %>% group_by(.dots = c(stim.var, time.var)) %>% summarise(ymin_ctn = min(get(erk.ratio.var)) , ymax_ctn = max(get(erk.ratio.var)), mean_ctn = mean(get(erk.ratio.var)),
+          lower = mean(get(erk.ratio.var)) - (qnorm(1-(a/2)) * sd(get(erk.ratio.var))/sqrt(n())) , upper =  mean(get(erk.ratio.var)) + (qnorm(1-(a/2)) * sd(get(erk.ratio.var))/sqrt(n())))
     #get also rug of pulses
   
   gg = ggplot(data.summary, aes(x = get(time.var), y = mean_ctn, group = get(stim.var)))+ 
     geom_ribbon(alpha = alpha, mapping = aes(ymin = lower, ymax = upper)) +
-    geom_line(aes(color = get(stim.var)), size = 1.5) + 
+    geom_line(aes(color = get(stim.var)), size = 1.2) + 
     # vector of measurements 
-    geom_rug(aes(x = stimulus.rug, y = NULL), color = stim.color) + 
-    labs(x = time.var, y = ylab, legend = "stim.var")  + ggplotTheme() + theme(legend.title = element_blank())
+    labs(x = time.var, y = ylab, legend = "stim.var")  + ggplotTheme() + theme(legend.title = element_blank()) 
+    #scale_color_brewer(palette = "Set3")
+    gg = custom_rug(gg, stimulus.rug, stim.color) 
+  
     return(gg)
   }
 
+custom_rug = function(ggplot.obj, stim.times, stim.color){
+  rug = ggplot.obj + geom_rug(aes(x=stim.times[1],y = NULL), color = stim.color)
+  for (time in stim.times[-1]){
+    rug = rug + geom_rug(aes(x=time,y = NULL), color = stim.color)
+  }
+  return(rug)
+}
 #stolen from dmattek tca-package
 ggplotTheme = function(in.font.base = 12,
                        in.font.axis.text = 12,
@@ -102,17 +101,13 @@ ggplotTheme = function(in.font.base = 12,
 }
 
 
-create_plot(data, 0.05, 10, nuc.erk = nuc.erk, cyto.erk = cyto.erk, time.var = time.var, stim.var = stim.var)
+#create_plot(data, 0.05, 10, nuc.erk = nuc.erk, cyto.erk = cyto.erk, time.var = time.var, stim.var = stim.var)
 
 pdf(file = pdf.filename)
-for(group in experient.groups.plate1){
+for(group in get(paste0("experient.groups.", plate))){
   
-  metadata %>% select(contains("Stimulation_time"), stim.var) %>% filter(get(stim.var %in% group))
-  print(group)
-  gg = create_plot(dt.data[Stimulation_treatment %in% group], 0.05, 10, nuc.erk = nuc.erk, cyto.erk = cyto.erk, time.var = time.var, stim.var = stim.var)
+  #stim_vec = as.numeric(pull(stim_vec))
+  gg = create_plot(dt.data[Stimulation_treatment %in% group], 0.05, stimulus.rug = stim.times, nuc.erk = nuc.erk, cyto.erk = cyto.erk, time.var = time.var, stim.var = stim.var, erk.ratio.var = erk.ratio.var)
   plot(gg)
 }
 dev.off()
-
-
-
