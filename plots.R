@@ -6,35 +6,8 @@
 # time.var = "RealTime"
 # stim.var = "Stimulation_treatment"
 # stim.time.var = "Stimulation_time"
-plate = "plate1"
-
+vlines = FALSE
 #for each list element a plot will be created with those elements
-experient.groups.plate1 = list(
-  c("+CTRL 1","+CTRL 2","+CTRL 3","+CTRL 4","+CTRL 5","+CTRL 6","+CTRL 7","+CTRL 8","-CTRL 1","-CTRL 2","-CTRL 3","-CTRL 4","-CTRL 5","-CTRL 6","-CTRL 7","-CTRL 8"),
-  c("+CTRL 1", "-CTRL 1", "ERK1","ERK2", "MEK1", "MEK2"),
-  c("+CTRL 2", "-CTRL 2", "C-Raf","A-Raf", "B-Raf", "MAP3K1"),                      
-  c("+CTRL 3", "-CTRL 3", "KRAS","HRAS", "NRAS", "RRAS"),
-  c("+CTRL 4", "-CTRL 4", "CNKSR1","KSR1", "YWHAG", "YWHAZ"),
-  c("+CTRL 5", "-CTRL 5", "DUSP1","DUSP2", "DUSP3", "DUSP4"),
-  c("+CTRL 6", "-CTRL 6", "DUSP6","DUSP8", "DUSP9", "DUSP10"),
-  c("+CTRL 7", "-CTRL 7", "DUSP14","DUSP16", "DUSP22", "DUSP26"),
-  c("+CTRL 8", "-CTRL 8", "PP2A","RKIP", "PEA15", "RSK2")
-  #c("WT 1", "WT 2", "WT 3","WT 4", "+CTRL 9", "-CTRL 9")
-  
-)
-
-experient.groups.plate2 = list(
-  c("+CTRL 1","+CTRL 2","+CTRL 3","+CTRL 4","+CTRL 5","+CTRL 6","+CTRL 7","+CTRL 8","-CTRL 1","-CTRL 2","-CTRL 3","-CTRL 4","-CTRL 5","-CTRL 6","-CTRL 7","-CTRL 8"),
-  c("+CTRL 1", "-CTRL 1", "SOS1","SOS2", "RASA1", "NF1"),
-  c("+CTRL 2", "-CTRL 2", "RASGRP1","RAP1A", "RAP1B", "SRC"),                      
-  c("+CTRL 3", "-CTRL 3", "RAPGEF1","RAPGEF3", "DIRAS1", "DIRAS2"),
-  c("+CTRL 4", "-CTRL 4", "FRS2","Shc1", "GAB1", "GRB2"),
-  c("+CTRL 5", "-CTRL 5", "SPRY1","SPRY2", "SPRY3", "SPRY4"),
-  c("+CTRL 6", "-CTRL 6", "PTPN6","PTPN11", "NCK1", "NCK2"),
-  c("+CTRL 7", "-CTRL 7", "CRKL","SHIP", "PTK2", "PLCG1"),
-  c("WT 1", "WT 2", "WT 3","WT 4", "+CTRL 9", "-CTRL 9")
-)
-
 
 # Create a new table with only positive controls
 # dt.data.positiveCTRLs = dt.data[Stimulation_treatment %in% c("+CTRL 1","+CTRL 2","+CTRL 3","+CTRL 4","+CTRL 5","+CTRL 6","+CTRL 7","+CTRL 8")]
@@ -107,10 +80,11 @@ ggplotTheme = function(in.font.base = 12,
 #create_plot(data, 0.05, 10, nuc.erk = nuc.erk, cyto.erk = cyto.erk, time.var = time.var, stim.var = stim.var)
 
 pdf(file = pdf.filename)
-for(group in get(paste0("experient.groups.", plate))){
+ngroups = dt.data %>% select(meta.grouping)  %>% summarise(n = length(unique(get(meta.grouping)))) %>% pull()
+for(i in (0:(ngroups-1))){
   
   #stim_vec = as.numeric(pull(stim_vec))
-  gg = create_plot(data = dt.data[Stimulation_treatment %in% group],
+  gg = create_plot(data = setDT(dt.data)[get(meta.grouping) == i],
                    ci.lvl = 0.05,
                    stimulus.rug = stim.times,
                    nuc.erk = nuc.erk,
@@ -118,8 +92,18 @@ for(group in get(paste0("experient.groups.", plate))){
                    time.var = time.var,
                    stim.var = stim.var,
                    erk.ratio.var = erk.ratio.var,
-                   vlines = T)
+                   vlines = vlines)
   plot(gg)
 }
+gg = create_plot(data = setDT(dt.data)[get(stim.var) %like% "CTRL"],
+                 ci.lvl = 0.05,
+                 stimulus.rug = stim.times,
+                 nuc.erk = nuc.erk,
+                 cyto.erk = cyto.erk,
+                 time.var = time.var,
+                 stim.var = stim.var,
+                 erk.ratio.var = erk.ratio.var,
+                 vlines = vlines)
+plot(gg)
 dev.off()
 
