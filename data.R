@@ -5,9 +5,9 @@ if(!require(pacman)){
 rm(list  = ls())
 pacman::p_load(data.table, ggplot2, tidyverse, readxl)
 
-
 nuc.erk = "objNuc_Intensity_MeanIntensity_imErk"
 cyto.erk = "objCyto_ring_Intensity_MeanIntensity_imErk"
+#cyto.erk = "objCyto_Intensity_MeanIntensity_imErk"
 time.var = "RealTime"
 stim.var = "Stimulation_treatment"
 stim.time.var = "Stimulation_time"
@@ -25,7 +25,7 @@ metaname = "20190212_NIH3T3_syst_III_siPOOL_plate1_singlePulses.xlsx"
 #metaname = "20181213_NIH3T3_syst_III_siPOOL_plate1_multiPulses.xlsx"
 # ---------
 
-pdf.filename = "plots.pdf" 
+pdf.filename = "plots_multi.pdf" 
 
 path = paste(mnt, experiment, "cp.out", sep = "/") # or just the path to tCoursesSelected.csv
 metadatapath = paste(mnt, experiment, metaname, sep = "/") # or just the path to the metadata file

@@ -6,10 +6,15 @@ require(data.table)
 calc_derivatives = function(series){
   return(series - lag(series))
 }
-  
+ 
 series_baseline = function(series, stim.time, robust = F){
   before = mean(series[1:stim.time])
   after = mean(series[(length(series) - 9) : (length(series))])
+  if(robust){
+    before = median(series[1:stim.time])
+    after = median(series[(length(series) - 9) : (length(series))])
+  }
+  
   
   return(list(before = before, 
               after  = after,
@@ -19,15 +24,24 @@ series_baseline = function(series, stim.time, robust = F){
          ))
 }
 
-
+fwhm_wrapper = function(series,  basal = baseline$before, dip.amp, basewindow = 10){
+  red = series[dip.amp$time.min : (length(series) - basewindow - 1)]
+  fwhm = FeatFWHM(y = red, basal = basal)
+  
+  return( list(
+    fwhm = fwhm$fwhm,
+    right = fwhm$right + dip.amp$time.min -1,
+    left = fwhm$left + dip.amp$time.min -1
+  ))
+}
 # only possible if stim.time is known and max amplitude measured correctly
 dip_amplitude <- function(y, stim.time, baseline){
   # Shift the data to have basal at 0, this is important so that maximum peak is
   # measured in amplitude instead of absolute value
   y <- y - baseline$before
-  if(  min(y[stim.time:which.max(y)]) > 0){dip = 0
-  } else{dip = min(y[(stim.time + 1):which.max(y)])} # the real dip cannot already happen at stim time either
-  return(list(min = abs(dip), time.min = stim.time -1 + which.min(y[stim.time:which.max(y)])))
+  if(  min(y[stim.time:   (which.max(y[stim.time: length(y)])  +stim.time - 1 ) ]                   ) > 0){dip = 0
+  } else{dip = min(y[(stim.time + 1): (which.max(y[stim.time: length(y)])  +stim.time - 1 )])} # the real dip cannot already happen at stim time either
+  return(list(min = abs(dip), time.min = stim.time -1 + which.min(y[stim.time:  (which.max(y[stim.time: length(y)])  +stim.time - 1 )])))
 }
 
 exp_decay = function(series, stim.time){
@@ -45,11 +59,12 @@ exp_decay = function(series, stim.time){
 response_delay = function(stim.time, max.amp){
   return( c("delay" = max.amp$time.max -stim.time)) 
 }
-max_amp_wrapper = function(series, stim.time, baseline){
-  max_amp = FeatMaxAmplitude(series[stim.time:(length(series) - stim.time)], basal = baseline$before)
+max_amp_wrapper = function(series, stim.time, baseline, dip.amp){
+  max_amp = FeatMaxAmplitude(series[dip.amp$time.min:(length(series) - stim.time)], basal = baseline$before)
+  if (max_amp$max < 0) { max = NA}else{max = max_amp$max}
   return( list(
-    max = max_amp$max,
-    time.max = (max_amp$time.max + stim.time - 1) 
+    max = max,
+    time.max = (max_amp$time.max + dip.amp$time.min - 1) 
   ))
 }
 
@@ -57,53 +72,53 @@ max_amp_wrapper = function(series, stim.time, baseline){
 
 # # plot stuff ---------
 # # hardcoded helper function
-# add_baseline_to_plot = function(baseline, begin = T){
-#     lines(1:10, rep(baseline$before, 10), col = "red")
-#     lines(31:40, rep(baseline$after, 10), col = "red")
-# }
-# #lambda = exp_decay(single_timeseries_coralie, 10)
-# add_dec_to_plot = function(series, lambda){
-#   lines(c(which.max(series),length(series)), max(series) + lambda * c(0, length(series) - which.max(series)), col = "yellow")
-#   
-# }
-# add_growth_to_plot = function(series, lambda){
-#   x = c(0,50)
-#   reg = (( x )*  lambda)  - ((lambda * which.max(series)) - max(series)) 
-#   lines(x, reg, col = "yellow")
-# }
-# 
-# add_dip_to_plot = function(dip_amp, series){
-#   x = rep(dip_amp$time.min,10)
-#   y1 = series[dip_amp$time.min]
-#   y =sample(c(y1, y1 + dip_amp$min), 10, replace = T)
-#   lines(x,y, col = "green")
-# }
-# add_amp_to_plot = function(max_amp, series){
-#   x = rep(max_amp$time.max,10)
-#   y1 = series[max_amp$time.max]
-#   y =sample(c(y1, y1 - max_amp$max), 10, replace = T)
-#   lines(x,y, col = "green")
-# }
-# fwhm_to_plot = function(fmwh, series){
-# 
-#   x = c(fmwh$left, fmwh$right)
-#   dec = fmwh$right - as.integer(fmwh$right)
-#   y = rep( (series[as.integer(fmwh$right)] * (1 -dec)) + (  series[as.integer(fmwh$right) +1 ] * dec) ,2 ) 
-#   lines(x, y, col = "blue")
-# 
-# }
-# 
-# 
-# series_plot_feat = function(series, dip, amp, time.var, fmwh, dec, growth){
-#   plot(series, type = "l")
-#   add_baseline_to_plot(series_baseline(series, time.var))
-#   add_dip_to_plot(dip, series)
-#   add_amp_to_plot(amp, series)
-#   fwhm_to_plot(fmwh, series)
-#   add_dec_to_plot(series, lambda = dec)
-#   add_growth_to_plot(series, lambda = growth)
-#   rug(time.var, col = "red", lw = 2)
-# }
+add_baseline_to_plot = function(baseline, begin = T, series_len){
+    lines(1:10, rep(baseline$before, 10), col = "red")
+    lines((series_len-9):series_len, rep(baseline$after, 10), col = "red")
+}
+#lambda = exp_decay(single_timeseries_coralie, 10)
+add_dec_to_plot = function(series, lambda){
+  lines(c(which.max(series),length(series)), max(series) + lambda * c(0, length(series) - which.max(series)), col = "yellow")
+
+}
+add_growth_to_plot = function(series, lambda){
+  x = c(0,50)
+  reg = (( x )*  lambda)  - ((lambda * which.max(series)) - max(series))
+  lines(x, reg, col = "yellow")
+}
+
+add_dip_to_plot = function(dip_amp, series){
+  x = rep(dip_amp$time.min,10)
+  y1 = series[dip_amp$time.min]
+  y =sample(c(y1, y1 + dip_amp$min), 10, replace = T)
+  lines(x,y, col = "green")
+}
+add_amp_to_plot = function(max_amp, series){
+  x = rep(max_amp$time.max,10)
+  y1 = series[max_amp$time.max]
+  y =sample(c(y1, y1 - max_amp$max), 10, replace = T)
+  lines(x,y, col = "green")
+}
+fwhm_to_plot = function(fmwh, series){
+
+  x = c(fmwh$left, fmwh$right)
+  dec = fmwh$right - as.integer(fmwh$right)
+  y = rep( (series[as.integer(fmwh$right)] * (1 -dec)) + (  series[as.integer(fmwh$right) +1 ] * dec) ,2 )
+  lines(x, y, col = "blue")
+
+}
+
+
+series_plot_feat = function(series, dip, amp, time.var, fmwh, dec, growth){
+  plot(series, type = "l")
+  add_baseline_to_plot(series_baseline(series, time.var), series_len = length(series))
+  add_dip_to_plot(dip, series)
+  add_amp_to_plot(amp, series)
+  fwhm_to_plot(fmwh, series)
+  add_dec_to_plot(series, lambda = dec)
+  add_growth_to_plot(series, lambda = growth)
+  rug(time.var, col = "red", lw = 2)
+}
 # 
 # 
 # #plot(calc_derivatives(single_timeseries_coralie))
@@ -158,7 +173,7 @@ max_amp_wrapper = function(series, stim.time, baseline){
 all_features = function(series, stim.time){
   baseline = series_baseline(single_timeseries_coralie, stim.time)
   max_amp = max_amp_wrapper(single_timeseries_coralie, stim.time, baseline)
-  fmwh = FeatFWHM(single_timeseries_coralie,  basal = baseline$before)
+  #fmwh = FeatFWHM(single_timeseries_coralie,  basal = baseline$before)
   dip_amp = dip_amplitude(single_timeseries_coralie, stim.time = stim.time, baseline)
   delay = response_delay(10, max_amp)
   # rates!
@@ -174,9 +189,9 @@ all_features = function(series, stim.time){
 }
 all_features_df = function(series, stim.time){
   baseline = series_baseline(series, stim.time)
-  max_amp = max_amp_wrapper(series, stim.time, baseline)
-  fmwh = FeatFWHM(series,  basal = baseline$before)
   dip_amp = dip_amplitude(series, stim.time = stim.time, baseline)
+  max_amp = max_amp_wrapper(series, stim.time, baseline, dip.amp = dip_amp)
+  fmwh = fwhm_wrapper(series,  basal = baseline$before, dip_amp)
   delay = response_delay(10, max_amp)
   # rates!
   dec = FeatHalfMaxDec(series, basal = baseline$before)
@@ -189,8 +204,6 @@ all_features_df = function(series, stim.time){
             'growth' = growth,
             'decay' = dec)))
 }
-
-
 
 run_feature_extraction_single = function(data, stim.time, group.var, erk.cyto, erk.nuc){
   dt.w.features <- data %>%
