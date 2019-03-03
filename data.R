@@ -54,5 +54,5 @@ groups <- metadata %>% # group_by(.dots = meta.grouping) %>%
 
 dt.data = left_join(dt.data, groups)
 
-#source('~/MasterProjects/timeseries_analysis/plots.R')
-#source('~/MasterProjects/timeseries_analysis/timeseries_analysis_functions_single.R')
+source('~/MasterProjects/timeseries_analysis/plots.R')
+
