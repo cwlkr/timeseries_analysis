@@ -34,8 +34,6 @@ metadatapath = paste(mnt, experiment, metaname, sep = "/") # or just the path to
 
 
 path = paste(mnt, experiment, "cp.out", sep = "/") # or just the path to tCoursesSelected.csv
-metaname = "20190221_NIH3T3_syst_III_siPOOL_plate1_singlePulses_I.xlsx"
-
 
 # Read csv file 
 s.file = list.files(path = path, pattern = "tCoursesSelected.csv", recursive = FALSE, full.names = TRUE)
