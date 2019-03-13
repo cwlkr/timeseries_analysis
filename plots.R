@@ -29,12 +29,26 @@ create_plot = function(data, ci.lvl, stimulus.rug, stim.var, erk.ratio.var, time
           lower = mean(get(erk.ratio.var)) - (qnorm(1-(a/2)) * sd(get(erk.ratio.var))/sqrt(n())) , upper =  mean(get(erk.ratio.var)) + (qnorm(1-(a/2)) * sd(get(erk.ratio.var))/sqrt(n())))
     #get also rug of pulses
   
-  ggp = ggplot(data.summary, aes(x = get(time.var), y = mean_ctn, group = get(stim.var)))+ 
+  #check if CTRL and treat differently and maybe check if everything is ctrl.
+  ctrl = data.summary %>% filter(get(stim.var) %like% "CTRL")
+  #ctrl.neg = data.summary %>% filter(get(stim.var) %like% "\\-CTRL")
+  if(nrow(ctrl) == nrow(data.summary)){
+    data.plot = ctrl
+  }else{
+    data.plot = data.summary %>% filter(!(get(stim.var) %like% "CTRL"))
+  }
+  
+  ggp = ggplot(data.plot, aes(x = get(time.var), y = mean_ctn, group = get(stim.var)))+ 
     geom_ribbon(alpha = alpha, mapping = aes(ymin = lower, ymax = upper)) +
     geom_line(aes(color = get(stim.var)), size = 1.2) + 
     labs(x = time.var, y = ylabel, legend = "stim.var")  + ggplotTheme() + theme(legend.title = element_blank()) +
-    #scale_color_brewer(palette = "Set3")
     geom_rug(data = data.frame(stim.times = stim.times), aes(x=stim.times,y =NULL, group = NULL), color = stim.color)
+    
+    if(!(nrow(ctrl) == nrow(data.summary))){
+      ggp = ggp + geom_line(data = ctrl, aes( group = get(stim.var) , linetype=get(stim.var)), color = "black",  size = 1.2) +
+      geom_ribbon(data = ctrl,alpha = alpha, mapping = aes(ymin = lower, ymax = upper)) + 
+      scale_color_brewer(palette = "Set1")
+    }
     
     if(vlines){
       ggp = ggp + geom_vline(data = data.frame(stim.times = stim.times), aes(xintercept=stim.times, group = NULL), color = stim.color, linetype="dotted")
